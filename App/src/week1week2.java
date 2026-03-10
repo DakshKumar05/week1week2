@@ -1,76 +1,64 @@
 import java.util.*;
 
-class DNSEntry {
-    String domain;
-    String ip;
-    long expiry;
-
-    DNSEntry(String d, String i, long ttl) {
-        domain = d;
-        ip = i;
-        expiry = System.currentTimeMillis() + ttl;
-    }
-
-    boolean expired() {
-        return System.currentTimeMillis() > expiry;
-    }
-}
-
 public class week1week2 {
 
-    private int capacity = 5;
-    private int hits = 0;
-    private int misses = 0;
+    private HashMap<String, Set<String>> index = new HashMap<>();
+    private HashMap<String, List<String>> documents = new HashMap<>();
+    private int n = 3;
 
-    private LinkedHashMap<String, DNSEntry> cache =
-            new LinkedHashMap<String, DNSEntry>(16, 0.75f, true) {
-                protected boolean removeEldestEntry(Map.Entry<String, DNSEntry> e) {
-                    return size() > capacity;
+    public void addDocument(String id, String text) {
+        String[] words = text.split(" ");
+        List<String> ngrams = new ArrayList<>();
+
+        for (int i = 0; i <= words.length - n; i++) {
+            String gram = words[i] + " " + words[i + 1] + " " + words[i + 2];
+            ngrams.add(gram);
+            index.putIfAbsent(gram, new HashSet<>());
+            index.get(gram).add(id);
+        }
+
+        documents.put(id, ngrams);
+    }
+
+    public void analyzeDocument(String id, String text) {
+        String[] words = text.split(" ");
+        List<String> ngrams = new ArrayList<>();
+
+        for (int i = 0; i <= words.length - n; i++) {
+            String gram = words[i] + " " + words[i + 1] + " " + words[i + 2];
+            ngrams.add(gram);
+        }
+
+        System.out.println("Extracted " + ngrams.size() + " n-grams");
+
+        HashMap<String, Integer> matchCount = new HashMap<>();
+
+        for (String gram : ngrams) {
+            if (index.containsKey(gram)) {
+                for (String doc : index.get(gram)) {
+                    matchCount.put(doc, matchCount.getOrDefault(doc, 0) + 1);
                 }
-            };
-
-    public String resolve(String domain) {
-
-        if (cache.containsKey(domain)) {
-            DNSEntry entry = cache.get(domain);
-
-            if (!entry.expired()) {
-                hits++;
-                System.out.println("Cache HIT -> " + entry.ip);
-                return entry.ip;
-            } else {
-                cache.remove(domain);
-                System.out.println("Cache EXPIRED");
             }
         }
 
-        misses++;
-        String ip = queryDNS(domain);
-        cache.put(domain, new DNSEntry(domain, ip, 300000));
-        System.out.println("Cache MISS -> " + ip);
-        return ip;
+        for (String doc : matchCount.keySet()) {
+            int matches = matchCount.get(doc);
+            double similarity = (matches * 100.0) / ngrams.size();
+            System.out.println("Found " + matches + " matching n-grams with " + doc);
+            System.out.println("Similarity: " + similarity + "%");
+        }
     }
 
-    private String queryDNS(String domain) {
-        return "172.217.14." + new Random().nextInt(255);
-    }
+    public static void main(String[] args) {
+        week1week2 system = new week1week2();
 
-    public void getCacheStats() {
-        int total = hits + misses;
-        double hitRate = total == 0 ? 0 : (hits * 100.0) / total;
-        System.out.println("Hit Rate: " + hitRate + "%");
-    }
+        system.addDocument("essay_089.txt",
+                "machine learning improves computer vision and natural language processing");
 
-    public static void main(String[] args) throws Exception {
-        week1week2 dns = new week1week2();
+        system.addDocument("essay_092.txt",
+                "machine learning improves computer vision and deep learning systems");
 
-        dns.resolve("google.com");
-        dns.resolve("google.com");
-
-        Thread.sleep(2000);
-
-        dns.resolve("google.com");
-
-        dns.getCacheStats();
+        system.analyzeDocument("essay_123.txt",
+                "machine learning improves computer vision and natural language systems");
     }
 }
