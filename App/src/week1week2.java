@@ -1,72 +1,56 @@
 import java.util.*;
 
-class TokenBucket {
-    int tokens;
-    int maxTokens;
-    long lastRefillTime;
-    int refillRate;
-
-    TokenBucket(int maxTokens, int refillRate) {
-        this.maxTokens = maxTokens;
-        this.tokens = maxTokens;
-        this.refillRate = refillRate;
-        this.lastRefillTime = System.currentTimeMillis();
-    }
-
-    void refill() {
-        long now = System.currentTimeMillis();
-        long elapsed = (now - lastRefillTime) / 1000;
-        int refill = (int) (elapsed * refillRate);
-        if (refill > 0) {
-            tokens = Math.min(maxTokens, tokens + refill);
-            lastRefillTime = now;
-        }
-    }
-
-    boolean allowRequest() {
-        refill();
-        if (tokens > 0) {
-            tokens--;
-            return true;
-        }
-        return false;
-    }
-}
-
 public class week1week2 {
+    private Map<String, Integer> globalStats = new HashMap<>();
 
-    private HashMap<String, TokenBucket> clients = new HashMap<>();
-    private int limit = 1000;
+    class TrieNode {
+        Map<Character, TrieNode> children = new HashMap<>();
+        Map<String, Integer> prefixFrequencies = new HashMap<>();
+    }
 
-    public synchronized void checkRateLimit(String clientId) {
-        clients.putIfAbsent(clientId, new TokenBucket(limit, limit / 3600));
+    private TrieNode root = new TrieNode();
 
-        TokenBucket bucket = clients.get(clientId);
+    public void updateFrequency(String query) {
+        globalStats.put(query, globalStats.getOrDefault(query, 0) + 1);
+        int freq = globalStats.get(query);
 
-        if (bucket.allowRequest()) {
-            System.out.println("Allowed (" + bucket.tokens + " requests remaining)");
-        } else {
-            System.out.println("Denied (0 requests remaining)");
+        TrieNode current = root;
+        for (char c : query.toCharArray()) {
+            current.children.putIfAbsent(c, new TrieNode());
+            current = current.children.get(c);
+            current.prefixFrequencies.put(query, freq);
         }
     }
 
-    public void getRateLimitStatus(String clientId) {
-        if (!clients.containsKey(clientId)) return;
+    public List<String> search(String prefix) {
+        TrieNode current = root;
+        for (char c : prefix.toCharArray()) {
+            if (!current.children.containsKey(c)) return new ArrayList<>();
+            current = current.children.get(c);
+        }
 
-        TokenBucket bucket = clients.get(clientId);
-        int used = bucket.maxTokens - bucket.tokens;
+        PriorityQueue<Map.Entry<String, Integer>> pq = new PriorityQueue<>(
+                (a, b) -> b.getValue().compareTo(a.getValue())
+        );
+        pq.addAll(current.prefixFrequencies.entrySet());
 
-        System.out.println("used: " + used + ", limit: " + bucket.maxTokens);
+        List<String> results = new ArrayList<>();
+        for (int i = 0; i < 10 && !pq.isEmpty(); i++) {
+            results.add(pq.poll().getKey());
+        }
+        return results;
     }
 
     public static void main(String[] args) {
+        week1week2 q = new week1week2();
+        q.updateFrequency("john_doe");
+        q.updateFrequency("john_doe");
+        q.updateFrequency("jane_smith");
+        q.updateFrequency("admin");
+        q.updateFrequency("admin");
+        q.updateFrequency("admin");
 
-        week1week2 limiter = new week1week2();
-
-        limiter.checkRateLimit("abc123");
-        limiter.checkRateLimit("abc123");
-        limiter.checkRateLimit("abc123");
-
-        limiter.getRateLimitStatus("abc123");
+        System.out.println(q.search("jo"));
+        System.out.println(q.search("ad"));
     }
 }
