@@ -1,66 +1,41 @@
 import java.util.*;
 
 public class week1week2 {
-    static class Transaction {
-        int id;
-        int amount;
-        String merchant;
-        String time;
-
-        Transaction(int id, int amount, String merchant, String time) {
-            this.id = id;
-            this.amount = amount;
-            this.merchant = merchant;
-            this.time = time;
+    private LinkedHashMap<String, String> l1Cache = new LinkedHashMap<>(10000, 0.75f, true) {
+        protected boolean removeEldestEntry(Map.Entry eldest) {
+            return size() > 10000;
         }
-    }
+    };
 
-    public List<int[]> findTwoSum(List<Transaction> transactions, int target) {
-        Map<Integer, Transaction> complementMap = new HashMap<>();
-        List<int[]> result = new ArrayList<>();
+    private Map<String, String> l2Cache = new HashMap<>();
+    private Map<String, Integer> accessCounts = new HashMap<>();
 
-        for (Transaction t : transactions) {
-            int complement = target - t.amount;
-            if (complementMap.containsKey(complement)) {
-                result.add(new int[]{complementMap.get(complement).id, t.id});
+    public String getVideo(String videoId) {
+        accessCounts.put(videoId, accessCounts.getOrDefault(videoId, 0) + 1);
+
+        if (l1Cache.containsKey(videoId)) {
+            return "L1 Cache HIT";
+        }
+
+        if (l2Cache.containsKey(videoId)) {
+            if (accessCounts.get(videoId) > 5) {
+                l1Cache.put(videoId, "VideoData_From_SSD");
             }
-            complementMap.put(t.amount, t);
-        }
-        return result;
-    }
-
-    public void detectDuplicates(List<Transaction> transactions) {
-        Map<Integer, List<Transaction>> amountMap = new HashMap<>();
-
-        for (Transaction t : transactions) {
-            amountMap.computeIfAbsent(t.amount, k -> new ArrayList<>()).add(t);
+            return "L2 Cache HIT -> Promoted to L1";
         }
 
-        for (Map.Entry<Integer, List<Transaction>> entry : amountMap.entrySet()) {
-            if (entry.getValue().size() > 1) {
-                System.out.println("Duplicate amount: " + entry.getKey());
-                for (Transaction tx : entry.getValue()) {
-                    System.out.println("  Transaction ID: " + tx.id + ", Merchant: " + tx.merchant);
-                }
-            }
-        }
+        l2Cache.put(videoId, "/ssd/path/" + videoId);
+        return "L3 Database HIT -> Added to L2";
     }
 
     public static void main(String[] args) {
-        week1week2 q = new week1week2();
-        List<Transaction> transactions = Arrays.asList(
-                new Transaction(1, 50, "Amazon", "10:00"),
-                new Transaction(2, 30, "Flipkart", "10:05"),
-                new Transaction(3, 20, "Amazon", "10:10"),
-                new Transaction(4, 50, "Myntra", "10:15")
-        );
+        week1week2 cacheSystem = new week1week2();
 
-        System.out.println("Two-sum results:");
-        for (int[] pair : q.findTwoSum(transactions, 50)) {
-            System.out.println(Arrays.toString(pair));
+        System.out.println(cacheSystem.getVideo("vid123")); // L3 -> L2
+        System.out.println(cacheSystem.getVideo("vid123")); // L2 hit
+        for (int i = 0; i < 6; i++) {
+            System.out.println(cacheSystem.getVideo("vid456")); // after 6 accesses, promoted to L1
         }
-
-        System.out.println("\nDuplicate detection:");
-        q.detectDuplicates(transactions);
+        System.out.println(cacheSystem.getVideo("vid456")); // L1 hit
     }
 }
